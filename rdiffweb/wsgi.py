@@ -29,14 +29,14 @@ from rdiffweb.rdw_app import RdiffwebApp
 import cherrypy
 import os
 
-if __name__.startswith("uwsgi"):
-    # Read config file
-    configfile = os.environ.get('RDIFFWEB_CONFIG', '/etc/rdiffweb/rdw.conf')
-    cfg = read_config(configfile)
-    
-    # Create application
-    cherrypy.config.update({'engine.autoreload.on': False})
-    cherrypy.server.unsubscribe()
-    cherrypy.engine.start()
-    
-    wsgiapp = cherrypy.tree.mount(RdiffwebApp(cfg))
+
+# Read config file
+configfile = os.environ.get('RDIFFWEB_CONFIG', '/etc/rdiffweb/rdw.conf')
+cfg = read_config(configfile)
+
+# Create application
+cherrypy.config.update({'engine.autoreload.on': False})
+cherrypy.server.unsubscribe()
+cherrypy.engine.start()
+
+app = cherrypy.tree.mount(RdiffwebApp(cfg))
