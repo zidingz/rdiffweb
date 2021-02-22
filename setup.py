@@ -176,7 +176,7 @@ setup(
     },
     install_requires=[
         "CherryPy>=3.5",
-        "Jinja2>=2.6,!=2.9",
+        "Jinja2>=2.6,!=2.9,<3.0",
         "psutil>=2.1.1",
         "babel>=0.9.6",
         "python-ldap",
