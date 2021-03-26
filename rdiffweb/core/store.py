@@ -544,8 +544,8 @@ class Store():
     def __init__(self, app):
         self.app = app
         # Connect to database
-        uri = self._db_uri if '://' in self._db_uri else "sqlite:///" + self._db_uri
-        self.engine = create_engine(uri, echo=self._debug)
+        self.url = self._db_uri if '://' in self._db_uri else "sqlite:///" + self._db_uri
+        self.engine = create_engine(self.url, echo=self._debug)
         # Create tables if missing.
         _META.create_all(self.engine)
 
