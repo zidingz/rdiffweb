@@ -104,26 +104,33 @@ def _utf8(self, val):
     return val.encode('utf-8')
 
 
+def _send_mail_task(client, *args, **kwargs):
+    client.send_mail(*self.args, **self.kwargs)
+
+
 class EmailClient():
     """
     Responsible to send email using application config.
     """
-    
+
     _encryption = Option('email_encryption')
 
     _email_host = Option('email_host')
 
     _email_from = Option('email_sender')
-    
+
     _smtp_username = Option('email_username')
 
     _smtp_password = Option('email_password')
 
     _header_name = Option("header_name")
-    
+
     def __init__(self, app):
         assert app
         self.app = app
+
+    def async_send_mail(self, to_user, subject, template_name, **kwargs):
+        self.app.scheduler.add_task(_send_mail_task, args=(self, to_user, subject, template_name), kwargs=kwargs)
 
     def send_mail(self, to_user, subject, template_name, **kwargs):
         """
@@ -180,7 +187,8 @@ class EmailClient():
             if conn is not None:
                 conn.quit()
 
-class NotificationPlugin(IUserChangeListener, EmailClient):
+
+class NotificationPlugin(IUserChangeListener):
     """
     Send email notification when a repository get too old (without a backup).
     """
@@ -207,9 +215,9 @@ class NotificationPlugin(IUserChangeListener, EmailClient):
             return
 
         # If the email attributes was changed, send a mail notification.
-        self.send_mail(userobj, _("Email address changed"), "email_changed.html")
+        self.async_send_mail(userobj, _("Email address changed"), "email_changed.html")
 
-    def user_password_changed(self, username, password):
+    def user_password_changed(self, username, password):  # @UnusedVariable
         """
         Implementation of IUserChangeListener interface.
         """
@@ -223,22 +231,20 @@ class NotificationPlugin(IUserChangeListener, EmailClient):
             return
 
         # If the email attributes was changed, send a mail notification.
-        self.send_mail(userobj, _("Password changed"), "password_changed.html")
+        self.async_send_mail(userobj, _("Password changed"), "password_changed.html")
 
-    
 
 class NotificationJob(EmailClient):
     """
     Scheduled job to send notification every day with list of problematic
     repositories.
     """
-    
+
     _email_notification_time = Option('email_notification_time')
 
-    
-    def __init__(self, app):    
+    def __init__(self, app):
         self.app = app
-    
+
     @property
     def job_execution_time(self):
         return self._email_notification_time

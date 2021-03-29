@@ -23,18 +23,12 @@ Created on Feb 13, 2016
 from unittest.mock import MagicMock, ANY, patch
 import unittest
 
-from rdiffweb.core.notification import html2plaintext, NotificationPlugin, NotificationJob
+from rdiffweb.core.notification import html2plaintext, NotificationPlugin, NotificationJob, \
+    EmailClient
 from rdiffweb.test import AppTestCase
 
 
 class NotificationJobTest(AppTestCase):
-
-    default_config = {
-        'EmailHost': 'smtp.gmail.com:587',
-        'EmailUsername': 'test@test.com',
-        'EmailPassword': 'test1234',
-        'EmailEncryption': 'starttls'
-    }
 
     def test_run_with_notification(self):
         """
@@ -76,6 +70,16 @@ class NotificationJobTest(AppTestCase):
         # Expect it to be called.
         n.send_mail.assert_not_called()
 
+
+class EmailClientTest(AppTestCase):
+
+    default_config = {
+        'EmailHost': 'smtp.gmail.com:587',
+        'EmailUsername': 'test@test.com',
+        'EmailPassword': 'test1234',
+        'EmailEncryption': 'starttls'
+    }
+
     def test_send_mail(self):
         """
         Check email template generation.
@@ -86,9 +90,28 @@ class NotificationJobTest(AppTestCase):
             user.email = 'test@test.com'
 
             # Get ref to notification plugin
-            n = NotificationPlugin(self.app)
+            n = EmailClient(self.app)
             self.assertIsNotNone(n)
             n.send_mail(user, 'subject', 'email_notification.html')
+
+    def test_async_send_mail(self):
+        """
+        Check email template generation.
+        """
+        self.assertEquals(0, len(self.app.scheduler.list_tasks()))
+
+        # Set user config
+        user = self.app.store.get_user(self.USERNAME)
+        user.email = 'test@test.com'
+
+        # Get ref to notification plugin
+        n = EmailClient(self.app)
+        n.send_mail = MagicMock()
+        self.assertIsNotNone(n)
+        n.async_send_mail(user, 'subject', 'email_notification.html')
+
+        # Check task scheduled
+        self.assertEquals(1, len(self.app.scheduler.list_tasks()))
 
     def test_html2plaintext(self):
         """
@@ -120,14 +143,14 @@ class NotificationPluginTest(AppTestCase):
         # Get ref to notification plugin
         n = NotificationPlugin(app=self.app)
         self.assertIsNotNone(n)
-        n.send_mail = MagicMock()
+        n.async_send_mail = MagicMock()
 
         # Set user config
         user = self.app.store.get_user(self.USERNAME)
         user.email = 'test@test.com'
 
         # Expect it to be called.
-        n.send_mail.assert_called_once_with(ANY, ANY, 'email_changed.html')
+        n.async_send_mail.assert_called_once_with(ANY, ANY, 'email_changed.html')
 
     def test_password_change_notification(self):
         # Set user config
@@ -137,13 +160,13 @@ class NotificationPluginTest(AppTestCase):
         # Get ref to notification plugin
         n = NotificationPlugin(app=self.app)
         self.assertIsNotNone(n)
-        n.send_mail = MagicMock()
+        n.async_send_mail = MagicMock()
 
         # Change password
         user.set_password('new_password')
 
         # Expect it to be called.
-        n.send_mail.assert_called_once_with(ANY, ANY, 'password_changed.html')
+        n.async_send_mail.assert_called_once_with(ANY, ANY, 'password_changed.html')
 
 
 if __name__ == "__main__":
