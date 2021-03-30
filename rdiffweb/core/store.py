@@ -35,6 +35,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.sql.expression import select, or_, and_
 from sqlalchemy.sql.functions import count
 from sqlalchemy.exc import IntegrityError
+import shutil
 
 # Define the logger
 logger = logging.getLogger(__name__)
@@ -98,6 +99,28 @@ def _split_path(path):
         return username.decode('utf-8'), path
     else:
         return path.decode('utf-8'), b''
+
+
+def _delete_repo(full_path):
+    """Delete directory recursively."""
+
+    # Try to change the permissions of the file or directory to delete them.
+    def _handle_error(func, path, exc_info):
+        if exc_info[0] == PermissionError:
+            # Parent directory must allow rwx
+            if not os.access(os.path.dirname(path), os.W_OK | os.R_OK | os.X_OK):
+                os.chmod(os.path.dirname(path), 0o0700)
+            if not os.access(path, os.W_OK | os.R_OK):
+                os.chmod(path, 0o0600)
+            return shutil.rmtree(path, onerror=_handle_error)
+        raise
+
+    logger.info('deleting repository %r' % full_path)
+    try:
+        shutil.rmtree(full_path, onerror=_handle_error)
+        logger.info('repository %r deleted' % full_path)
+    except:
+        logger.warn('error trying to delete repository %r' % full_path, exc_info=1)
 
 
 class DuplicateSSHKeyError(Exception):
@@ -518,9 +541,12 @@ class RepoObject(RdiffRepo):
     def delete(self):
         """Properly remove the given repository by updating the user's repositories."""
         logger.info("deleting repository %s", self)
+        # Remove entry from database
         with self._user_obj._store.engine.connect() as conn:
             conn.execute(_REPOS.delete(_REPOS.c.repoid == self._repoid))
-        RdiffRepo.delete(self)
+        # Remove data in background
+        app = self._user_obj._store.app
+        app.scheduler.add_task(_delete_repo, args=(self.full_path,))
 
     encoding = property(lambda x: x._encoding.name, _set_encoding)
     maxage = property(fget=lambda x: x._get_attr('maxage', default=0), fset=lambda x, y: x._set_attr('maxage', y))

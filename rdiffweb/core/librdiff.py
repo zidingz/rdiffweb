@@ -710,25 +710,6 @@ class RdiffRepo(object):
                 for x in self._get_entries(b'mirror_metadata')])
         return self._backup_dates_data
 
-    def delete(self):
-        """Delete the repository permanently."""
-
-        # Try to change the permissions of the file or directory to delete them.
-        def handle_error(func, path, exc_info):
-            if exc_info[0] == PermissionError:
-                # Parent directory must allow rwx
-                if not os.access(os.path.dirname(path), os.W_OK | os.R_OK | os.X_OK):
-                    os.chmod(os.path.dirname(path), 0o0700)
-                if not os.access(path, os.W_OK | os.R_OK):
-                    os.chmod(path, 0o0600)
-                return shutil.rmtree(path, onerror=handle_error)
-            raise
-
-        try:
-            shutil.rmtree(self.full_path, onerror=handle_error)
-        except:
-            logger.warn('fail to delete repo', exc_info=1)
-
     @property
     def display_name(self):
         """Return the most human representation of the repository name."""
