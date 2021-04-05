@@ -64,10 +64,10 @@ debian9-py3-cherrypy35-jinja28:
   variables:
     IMAGE: debian9-py3
     TOXENV: py3-cherrypy35-jinja28
-  # Need to upgrade setuptools on Debian stretch
+  # Need to upgrade setuptools on Debian stretch with <51.0.0
   before_script:
   - apt-get update && apt install -yq rdiff-backup libldap2-dev libsasl2-dev
-  - pip3 install -U setuptools
+  - pip3 install -U "setuptools<51"
   
 
 debian10-py3-cherrypy8-jinja210: 
