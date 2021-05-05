@@ -22,3 +22,21 @@ execute_after_dh_auto_install:
 	rm -rf debian/rdiffweb/usr/lib/python*/dist-packages/rdiffweb/static/js/jquery.min.js
 	rm -rf debian/rdiffweb/usr/lib/python*/dist-packages/rdiffweb/static/js/d3.min.js
 	rm -rf debian/rdiffweb/usr/lib/python*/dist-packages/rdiffweb/static/js/d3-tip.min.js
+
+DEB_UPSTREAM_VERSION=$(shell dpkg-parsechangelog | sed -rne 's,^Version: ([^-]+).*,\1,p')
+help2man = PYTHONPATH=${CURDIR} help2man -N --version-string=${DEB_UPSTREAM_VERSION} \
+		-o $1 -n '$2' $(CURDIR)/debian/rdiffweb/usr/bin/$(subst .1,,$1)
+
+rdiffweb.1:
+	$(call help2man,$@,Web interface for Rdiff-backup repositories)
+
+rdiffweb-restore.1:
+	$(call help2man,$@,Rdiffweb command line used to restore data into an archive)
+
+override_dh_installman: rdiffweb.1 rdiffweb-restore.1
+	dh_installman -p rdiffweb rdiffweb.1 rdiffweb-restore.1
+
+clean:
+	rm -f rdiffweb.1 rdiffweb-restore.1
+	dh $@ --buildsystem=pybuild
+
