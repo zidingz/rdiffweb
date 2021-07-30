@@ -93,7 +93,7 @@ class MockRdiffwebApp(RdiffwebApp):
         # Register repository
         for user in self.store.users():
             user.user_root = new
-            repo = user.add_repo('testcases')
+            repo = user.get_repo('testcases')
             repo.encoding = 'utf-8'
 
         self.testcases = new
