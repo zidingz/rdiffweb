@@ -60,21 +60,30 @@ def rdiff_backup_version():
     Get rdiff-backup version
     """
     try:
-        output = subprocess.check_output(['rdiff-backup', '--version'])
+        output = subprocess.check_output([find_rdiff_backup(), '--version'])
         m = re.search(b'([0-9]+).([0-9]+).([0-9]+)', output)
         return (int(m.group(1)), int(m.group(2)), int(m.group(3)))
     except:
         return (0, 0, 0)
 
 
+def find_rdiff_backup():
+    """
+    Lookup for `rdiff-backup` executable. Raise an exception if not found.
+    """
+    cmd = spawn.find_executable('rdiff-backup', PATH)
+    if not cmd:
+        raise ExecutableNotFoundError("can't find `rdiff-backup` executable in PATH: %s" % PATH)
+    return os.fsencode(cmd)
+
+
 def find_rdiff_backup_delete():
     """
-    Lookup for `rdiff-backup-delete` executable. Return None if not found.
+    Lookup for `rdiff-backup-delete` executable. Raise an exception if not found.
     """
-    path = os.path.dirname(sys.executable) + os.pathsep + os.environ['PATH']
-    cmd = spawn.find_executable('rdiff-backup-delete', path)
+    cmd = spawn.find_executable('rdiff-backup-delete', PATH)
     if not cmd:
-        return None
+        raise ExecutableNotFoundError("can't find `rdiff-backup-delete` executable in PATH: %s, make sure you have rdiff-backup >= 2.0.1 installed" % PATH)
     return os.fsencode(cmd)
 
 
@@ -452,11 +461,6 @@ class DirEntry(object):
             self._repo.delete()
         else:
             rdiff_backup_delete = find_rdiff_backup_delete()
-            if not rdiff_backup_delete:
-                logger.error(
-                    "can't find `rdiff-backup-delete` executable in PATH, make sure you have rdiff-backup >= 2.0.1 installed")
-                raise ExecutableNotFoundError(
-                    "can't find `rdiff-backup-delete` executable in PATH, make sure you have rdiff-backup >= 2.0.1 installed")
             cmdline = [rdiff_backup_delete, self.full_path]
             logger.info('executing: %r' % cmdline)
             process = subprocess.Popen(

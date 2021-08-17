@@ -38,7 +38,8 @@ import traceback
 from zipfile import ZipFile, ZIP_STORED, ZIP_DEFLATED
 
 import rdiffweb
-from rdiffweb.core.librdiff import LANG, PATH , STDOUT_ENCODING
+from rdiffweb.core.librdiff import LANG, PATH , STDOUT_ENCODING,\
+    find_rdiff_backup
 
 logger = logging.getLogger(__name__)
 
@@ -243,10 +244,7 @@ def restore(restore, restore_as_of, kind, encoding, dest, log=logger.info):
     log('restoring data into temporary folder: %r' % tmp_output)
 
     # Search full path location of rdiff-backup.
-    # To work around issue related to different PATH
-    rdiff_backup_path = spawn.find_executable('rdiff-backup')
-    assert rdiff_backup_path, "can't find `rdiff-backup` executable in PATH: " + PATH
-    rdiff_backup_path = os.fsencode(rdiff_backup_path)
+    rdiff_backup_path = find_rdiff_backup()
 
     # Need to explicitly export some environment variable. Do not export
     # all of them otherwise it also export some python environment variable
