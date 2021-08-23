@@ -25,6 +25,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import weakref
 
@@ -86,6 +87,59 @@ def find_rdiff_backup_delete():
         raise ExecutableNotFoundError("can't find `rdiff-backup-delete` executable in PATH: %s, make sure you have rdiff-backup >= 2.0.1 installed" % PATH)
     return os.fsencode(cmd)
 
+def popen(cmd, buffering=-1, stderr=None, env=None):
+    """
+    Alternative to os.popen() to support a `cmd` with a list of arguments and
+    return a file object that return bytes instead of string.
+
+    `stderr` could be subprocess.STDOUT or subprocess.DEVNULL or a function.
+    Otherwise, the error is redirect to logger.
+    """
+    if buffering == 0 or buffering is None:
+        raise ValueError("popen() does not support unbuffered streams")
+    # Check if stderr should be pipe.
+    pipe_stderr = stderr == subprocess.PIPE or hasattr(stderr, '__call__') or stderr is None
+    proc = subprocess.Popen(cmd,
+                            shell=False,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE if pipe_stderr else stderr,
+                            bufsize=buffering,
+                            env=env)
+    if pipe_stderr:
+        t = threading.Thread(target=_readerthread, args=(proc.stderr, stderr))
+        t.daemon = True
+        t.start()
+    return _wrap_close(proc.stdout, proc)
+
+# Helper for popen() to redirect stderr to a logger.
+def _readerthread(stream, func):
+    """
+    Read stderr and pipe each line to logger.
+    """
+    func = func or logger.debug
+    for line in stream:
+        func(line.decode(STDOUT_ENCODING, 'replace').strip('\n'))
+    stream.close()
+
+# Helper for popen() to close process when the pipe is closed.
+class _wrap_close:
+    def __init__(self, stream, proc):
+        self._stream = stream
+        self._proc = proc
+    def close(self):
+        self._stream.close()
+        returncode = self._proc.wait()
+        if returncode == 0:
+            return None
+        return returncode
+    def __enter__(self):
+        return self
+    def __exit__(self, *args):
+        self.close()
+    def __getattr__(self, name):
+        return getattr(self._stream, name)
+    def __iter__(self):
+        return iter(self._stream)
 
 class ExecutableNotFoundError(Exception):
     """
@@ -597,10 +651,7 @@ class IncrementEntry(object):
         """Should be used to open the increment file. This method handle
         compressed vs not-compressed file."""
         if self._is_compressed:
-            p = subprocess.Popen(
-                ['zcat', self.path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            fileobj = p.stdout
-            return fileobj
+            return popen(['zcat', self.path])
         return open(self.path, 'rb')
 
     @property
